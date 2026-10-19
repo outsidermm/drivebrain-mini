@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <cstring>
 #include <sys/ioctl.h>
+#include <poll.h>
+#include <cerrno>
 
 namespace comms {
     FlowmeterComms::FlowmeterComms(
@@ -28,15 +30,38 @@ namespace comms {
         }
     
 
+    void FlowmeterComms::read_pulse() {
+        gpio_v2_line_event event{};
+        pollfd descriptor{};
+        descriptor.fd = line_fd_;
+        descriptor.events = POLLIN;
+
+        while(_running) {
+            int poll_result = poll(&descriptor, 1, 100);
+
+            if (poll_result == 0) continue;
+            if (poll_result == -1) {
+                if (errno == EINTR) continue;
+                break;
+            }
+
+            if(descriptor.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+                break;
+            }
+
+            if (descriptor.revents & POLLIN) {
+                ssize_t read_result = read(line_fd_, &event, sizeof(event));
+                if (read_result == -1 && errno == EINTR) continue;
+                if (read_result != sizeof(event)) break;
+                // Process the received event
+            }
+        }
+    }
+
     FlowmeterComms::~FlowmeterComms() {
-        if (line_fd_ >= 0) {
-            close(line_fd_);
-        }
-
-        if (chip_fd_ >= 0) {
-            close(chip_fd_);
-        }
-
         _running = false;
+        if (reader_thread.joinable()) reader_thread.join();
+        if (line_fd_ >= 0) close(line_fd_);
+        if (chip_fd_ >= 0) close(chip_fd_);
     }
 };
