@@ -54,13 +54,14 @@ namespace comms {
     
 
     void FlowmeterComms::read_pulse() {
+        constexpr int POLL_TIMEOUT_MS = 100;
         gpio_v2_line_event event{};
         pollfd descriptor{};
         descriptor.fd = line_fd_;
         descriptor.events = POLLIN;
 
         while(_running) {
-            int poll_result = poll(&descriptor, 1, 100);
+            int poll_result = poll(&descriptor, 1, POLL_TIMEOUT_MS);
 
             if (poll_result == 0) continue;
             if (poll_result == -1) {

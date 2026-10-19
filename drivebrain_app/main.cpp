@@ -21,6 +21,9 @@ void sig_handler(int signal) {
 }
 
 int main() {
+  constexpr char FLOWMETER_GPIO_CHIP[] = "/dev/gpiochip0";
+  constexpr unsigned int FLOWMETER_GPIO_LINE = 17;
+
   std::signal(SIGINT, sig_handler);
   std::signal(SIGTERM, sig_handler);
 
@@ -36,7 +39,7 @@ int main() {
   std::chrono::microseconds loop_time_ms((int) (loop_time * 1000000.0f));
   auto next_tick = std::chrono::steady_clock::now();
   {
-    comms::FlowmeterComms flowmeter("/dev/gpiochip0", 17);
+    comms::FlowmeterComms flowmeter(FLOWMETER_GPIO_CHIP, FLOWMETER_GPIO_LINE);
 
     while(running) {
 
