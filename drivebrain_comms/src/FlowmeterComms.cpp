@@ -64,7 +64,11 @@ namespace comms {
                 ssize_t read_result = read(line_fd_, &event, sizeof(event));
                 if (read_result == -1 && errno == EINTR) continue;
                 if (read_result != sizeof(event)) break;
-                // Process the received event
+                {
+                    std::lock_guard<std::mutex> lock(pulse_queue_.mtx);
+                    pulse_queue_.deque.push_back(event);
+                }
+                pulse_queue_.cv.notify_one();
             }
         }
     }

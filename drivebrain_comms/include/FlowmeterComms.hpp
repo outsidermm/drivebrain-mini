@@ -3,6 +3,7 @@
 #include <string>
 #include <thread>
 #include <atomic>
+#include <DriverBus.hpp>
 
 namespace comms {
     class FlowmeterComms {
@@ -12,6 +13,8 @@ namespace comms {
         
         private:
             void read_pulse();
+
+            core::ThreadSafeDeque<gpio_v2_line_event> pulse_queue_;
 
             std::atomic<bool> _running = false;
             std::thread reader_thread;
