@@ -27,6 +27,17 @@ namespace comms {
             }
             line_fd_ = request.fd;
             _running = true;
+            
+            try {
+                reader_thread = std::thread(&FlowmeterComms::read_pulse, this);
+            } catch (...) {
+                _running = false;
+                close(line_fd_);
+                line_fd_ = -1;
+                close(chip_fd_);
+                chip_fd_ = -1;
+                throw;
+            }
         }
     
 
