@@ -38,6 +38,18 @@ namespace comms {
                 chip_fd_ = -1;
                 throw;
             }
+
+            try {
+                processing_thread = std::thread(&FlowmeterComms::process_pulse, this);
+            } catch (...) {
+                _running = false;
+                if (reader_thread.joinable()) reader_thread.join();
+                close(line_fd_);
+                line_fd_ = -1;
+                close(chip_fd_);
+                chip_fd_ = -1;
+                throw;
+            }
         }
     
 
@@ -66,6 +78,7 @@ namespace comms {
                 if (read_result != sizeof(event)) break;
                 {
                     std::lock_guard<std::mutex> lock(pulse_queue_.mtx);
+                    if (!_running) break;
                     pulse_queue_.deque.push_back(event);
                 }
                 pulse_queue_.cv.notify_one();
@@ -73,9 +86,37 @@ namespace comms {
         }
     }
 
+    void FlowmeterComms::process_pulse() {
+        while (true) {
+            std::deque<gpio_v2_line_event> pending;
+            {
+                std::unique_lock<std::mutex> lock(pulse_queue_.mtx);
+                pulse_queue_.cv.wait(lock, [this]() {
+                    return !_running || !pulse_queue_.deque.empty();
+                });
+
+                if (!_running && pulse_queue_.deque.empty()) break;
+                pending.swap(pulse_queue_.deque);
+            }
+
+            pulse_count_+= pending.size();
+
+        }
+    }
+
+    std::uint64_t FlowmeterComms::get_pulse_count() const {
+        return pulse_count_.load();
+    }
+
     FlowmeterComms::~FlowmeterComms() {
-        _running = false;
+        {
+            std::lock_guard<std::mutex> lock(pulse_queue_.mtx);
+            _running = false;
+
+        }
         if (reader_thread.joinable()) reader_thread.join();
+        pulse_queue_.cv.notify_all();
+        if(processing_thread.joinable()) processing_thread.join();
         if (line_fd_ >= 0) close(line_fd_);
         if (chip_fd_ >= 0) close(chip_fd_);
     }
