@@ -4,6 +4,7 @@ package drivebrain_msgs;
 
 message FlowmeterData {
     uint64 pulse_count = 1;
+    double flow_liters_per_minute = 2;
 }
 
 // Add your messages here
